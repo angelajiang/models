@@ -21,6 +21,7 @@ from __future__ import print_function
 import math
 import tensorflow as tf
 
+import datetime
 from datasets import dataset_factory
 from nets import nets_factory
 from preprocessing import preprocessing_factory
@@ -28,7 +29,7 @@ from preprocessing import preprocessing_factory
 slim = tf.contrib.slim
 
 tf.app.flags.DEFINE_integer(
-    'batch_size', 100, 'The number of samples in each batch.')
+    'batch_size', 2, 'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
     'max_num_batches', None,
@@ -178,6 +179,8 @@ def main(_):
 
     tf.logging.info('Evaluating %s' % checkpoint_path)
 
+    
+    start = datetime.datetime.now()
     slim.evaluation.evaluate_once(
         master=FLAGS.master,
         checkpoint_path=checkpoint_path,
@@ -185,7 +188,11 @@ def main(_):
         num_evals=num_batches,
         eval_op=list(names_to_updates.values()),
         variables_to_restore=variables_to_restore)
-
+    end = datetime.datetime.now()
+    sec_elapsed = (end - start).seconds
+    print(str(sec_elapsed) + " secs elapsed\n")
+    print(str(dataset.num_samples) + " frames\n")
+    print("%0.2f fps\n", dataset.num_samples / sec_elapsed)
 
 if __name__ == '__main__':
   tf.app.run()
