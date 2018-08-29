@@ -257,6 +257,10 @@ def train(dataset):
           # tower.
           grads = opt.compute_gradients(loss)
 
+	  grads_only, _ = list(zip(*grads))
+	  norms = tf.global_norm(grads_only)
+          gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm', norms))
+
           # Keep track of the gradients across all towers.
           tower_grads.append(grads)
 
