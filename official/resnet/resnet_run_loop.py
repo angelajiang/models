@@ -305,6 +305,12 @@ def resnet_model_fn(features, labels, mode, model_class,
       """
       return [(g, v) for g, v in gvs if 'dense' in v.name]
 
+    layer_scopes = ["conv2d_23", "conv2d_24", "conv2d_25",
+    "batch_normalization_22", "conv2d_26", "conv2d_27",
+    "batch_normalization_24", "conv2d_28", "conv2d_29",
+    "batch_normalization_26", "conv2d_30", "conv2d_31",
+    "batch_normalization_28", "conv2d_32", "conv2d_33", "dense"]
+
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are
       # so small, they underflow to 0. To avoid this, we multiply the loss by
@@ -323,6 +329,15 @@ def resnet_model_fn(features, labels, mode, model_class,
       norms = tf.global_norm(grads_only)
 
       minimize_op = optimizer.apply_gradients(unscaled_grad_vars, global_step)
+
+      for layer_scope in layer_scopes:
+        print(layer_scope)
+        vars_scoped = tf.trainable_variables(scope=layer_scope)
+        grads_scoped = optimizer.compute_gradients(loss, var_list=vars_scoped)
+        grads_only, _ = list(zip(*grads_scoped))
+        norms = tf.global_norm(grads_only)
+        gradnorm_s = tf.summary.scalar('gradient_norm_' + layer_scope, norms)
+
     else:
       grad_vars = optimizer.compute_gradients(loss)
       if fine_tune:
@@ -333,7 +348,15 @@ def resnet_model_fn(features, labels, mode, model_class,
 
       minimize_op = optimizer.apply_gradients(grad_vars, global_step)
 
-    tf.summary.scalar('gradient_norm', norms)
+      for layer_scope in layer_scopes:
+        print(layer_scope)
+        vars_scoped = tf.trainable_variables(scope="resnet_model/"+layer_scope)
+        grads_scoped = optimizer.compute_gradients(loss, var_list=vars_scoped)
+        grads_only, _ = list(zip(*grads_scoped))
+        norms = tf.global_norm(grads_only)
+        gradnorm_s = tf.summary.scalar('gradient_norm_' + layer_scope, norms)
+
+    tf.summary.scalar('gradient_norm_all', norms)
 
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     train_op = tf.group(minimize_op, update_ops)
