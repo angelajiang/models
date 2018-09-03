@@ -318,12 +318,22 @@ def resnet_model_fn(features, labels, mode, model_class,
       # back to the correct scale before passing them to the optimizer.
       unscaled_grad_vars = [(grad / loss_scale, var)
                             for grad, var in scaled_grad_vars]
+
+      grads_only, _ = list(zip(*unscaled_grad_vars))
+      norms = tf.global_norm(grads_only)
+
       minimize_op = optimizer.apply_gradients(unscaled_grad_vars, global_step)
     else:
       grad_vars = optimizer.compute_gradients(loss)
       if fine_tune:
         grad_vars = _dense_grad_filter(grad_vars)
+
+      grads_only, _ = list(zip(*grad_vars))
+      norms = tf.global_norm(grads_only)
+
       minimize_op = optimizer.apply_gradients(grad_vars, global_step)
+
+    tf.summary.scalar('gradient_norm', norms)
 
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     train_op = tf.group(minimize_op, update_ops)
