@@ -27,7 +27,7 @@ class ImagenetData(Dataset):
   """ImageNet data set."""
 
   def __init__(self, subset):
-    super(ImagenetData, self).__init__('ImageNet', subset)
+    super(ImagenetData, self).__init__('raw-data', subset)
 
   def num_classes(self):
     """Returns the number of classes in the data set."""
