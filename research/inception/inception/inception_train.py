@@ -226,6 +226,12 @@ def train(dataset):
     images_splits = tf.split(axis=0, num_or_size_splits=FLAGS.num_gpus, value=images)
     labels_splits = tf.split(axis=0, num_or_size_splits=FLAGS.num_gpus, value=labels)
 
+    layer_scopes = ["conv0", "conv1", "conv2", "conv3", "conv4",
+    "mixed_35x35x256a", "mixed_35x35x288a", "mixed_35x35x288b",
+    "mixed_17x17x768a", "mixed_17x17x768b", "mixed_17x17x768c",
+    "mixed_17x17x768d", "mixed_17x17x768e", "aux_logits", "mixed_17x17x1280a",
+    "mixed_8x8x2048a", "mixed_8x8x2048b", "logits"]
+
     # Calculate the gradients for each model tower.
     tower_grads = []
     reuse_variables = None
@@ -256,10 +262,17 @@ def train(dataset):
           # Calculate the gradients for the batch of data on this ImageNet
           # tower.
           grads = opt.compute_gradients(loss)
+          grads_only, _ = list(zip(*grads))
+          norms = tf.global_norm(grads_only)
+          gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm_all', norms))
 
-	  grads_only, _ = list(zip(*grads))
-	  norms = tf.global_norm(grads_only)
-          gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm', norms))
+          for layer_scope in layer_scopes:
+            print(layer_scope)
+            vars_scoped = tf.trainable_variables(scope=layer_scope)
+            grads_scoped = opt.compute_gradients(loss, var_list=vars_scoped)
+            grads_only, _ = list(zip(*grads_scoped))
+            norms = tf.global_norm(grads_only)
+            gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm_' + layer_scope, norms))
 
           # Keep track of the gradients across all towers.
           tower_grads.append(grads)
