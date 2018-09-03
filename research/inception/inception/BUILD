@@ -40,6 +40,16 @@ py_library(
 )
 
 py_library(
+    name = "bus_data",
+    srcs = [
+        "bus_data.py",
+    ],
+    deps = [
+        ":dataset",
+    ],
+)
+
+py_library(
     name = "image_processing",
     srcs = [
         "image_processing.py",
@@ -124,6 +134,17 @@ py_binary(
     ],
 )
 
+py_binary(
+    name = "bus_train",
+    srcs = [
+        "bus_train.py",
+    ],
+    deps = [
+        ":bus_data",
+        ":inception_train",
+    ],
+)
+
 py_library(
     name = "inception_train",
     srcs = [
@@ -162,6 +183,20 @@ sh_binary(
 sh_binary(
     name = "download_and_preprocess_imagenet",
     srcs = ["data/download_and_preprocess_imagenet.sh"],
+    data = [
+        "data/download_imagenet.sh",
+        "data/imagenet_2012_validation_synset_labels.txt",
+        "data/imagenet_lsvrc_2015_synsets.txt",
+        "data/imagenet_metadata.txt",
+        "data/preprocess_imagenet_validation_data.py",
+        "data/process_bounding_boxes.py",
+        ":build_imagenet_data",
+    ],
+)
+
+sh_binary(
+    name = "preprocess_imagenet_validation",
+    srcs = ["data/preprocess_imagenet_validation.sh"],
     data = [
         "data/download_imagenet.sh",
         "data/imagenet_2012_validation_synset_labels.txt",
