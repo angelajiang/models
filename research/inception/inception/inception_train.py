@@ -303,13 +303,24 @@ def train(dataset):
         summaries.append(
             tf.summary.histogram(var.op.name + '/gradients', grad))
 
+    #### Selective Backprop ####
+
+    backprop_count = tf.Variable(1, name='backprop_count', trainable=False, dtype=tf.int32)
+    nobackprop_count = tf.Variable(1, name='nobackprop_count', trainable=False, dtype=tf.int32)
+    #print_backprop_counts = tf.Print(backprop_count, [backprop_count, nobackprop_count])
+
     # Apply the gradients to adjust the shared variables.
+    # apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
     apply_gradient_op = \
       tf.cond(tf.cast(norms > FLAGS.backprop_threshold, tf.bool),
-              lambda: opt.apply_gradients(grads, global_step=global_step),
-              lambda: tf.cast(True, tf.bool))
+              lambda: tf.group(tf.assign(backprop_count, backprop_count+1), opt.apply_gradients(grads, global_step=global_step)),
+              lambda: tf.group(tf.assign(nobackprop_count, nobackprop_count+1), tf.cast(True, tf.bool)))
 
-    # apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+    with tf.name_scope('%s' % ("Debug")) as scope:
+      summaries.append(tf.summary.scalar('backprop_count', backprop_count))
+      summaries.append(tf.summary.scalar('nobackprop_count', nobackprop_count))
+
+    ##########################
 
     # Add histograms for trainable variables.
     for var in tf.trainable_variables():
