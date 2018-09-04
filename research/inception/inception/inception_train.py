@@ -56,6 +56,14 @@ tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.""")
 
+# Flags governing SelectiveBackprop
+tf.app.flags.DEFINE_boolean('log_gradients', True,
+                            """If set, log gradient_norms to tensorboard.""")
+tf.app.flags.DEFINE_float('backprop_threshold', 0,
+                          """Threshold for determining if backprop should be """
+                          """executed.""")
+
+
 # **IMPORTANT**
 # Please note that this learning rate schedule is heavily dependent on the
 # hardware architecture, batch size and any changes to the model architecture
@@ -262,20 +270,22 @@ def train(dataset):
           # Calculate the gradients for the batch of data on this ImageNet
           # tower.
           grads = opt.compute_gradients(loss)
+
+          # Keep track of the gradients across all towers.
+          tower_grads.append(grads)
+
           grads_only, _ = list(zip(*grads))
           norms = tf.global_norm(grads_only)
           gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm_all', norms))
 
-          for layer_scope in layer_scopes:
-            print(layer_scope)
-            vars_scoped = tf.trainable_variables(scope=layer_scope)
-            grads_scoped = opt.compute_gradients(loss, var_list=vars_scoped)
-            grads_only, _ = list(zip(*grads_scoped))
-            norms = tf.global_norm(grads_only)
-            gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm_' + layer_scope, norms))
-
-          # Keep track of the gradients across all towers.
-          tower_grads.append(grads)
+          if FLAGS.log_gradients:
+            for layer_scope in layer_scopes:
+              print(layer_scope)
+              vars_scoped = tf.trainable_variables(scope=layer_scope)
+              grads_scoped = opt.compute_gradients(loss, var_list=vars_scoped)
+              grads_only, _ = list(zip(*grads_scoped))
+              norms = tf.global_norm(grads_only)
+              gradnorm_s = summaries.append(tf.summary.scalar('gradient_norm_' + layer_scope, norms))
 
     # We must calculate the mean of each gradient. Note that this is the
     # synchronization point across all towers.
@@ -294,7 +304,12 @@ def train(dataset):
             tf.summary.histogram(var.op.name + '/gradients', grad))
 
     # Apply the gradients to adjust the shared variables.
-    apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+    apply_gradient_op = \
+      tf.cond(tf.cast(norms > FLAGS.backprop_threshold, tf.bool),
+              lambda: opt.apply_gradients(grads, global_step=global_step),
+              lambda: tf.cast(True, tf.bool))
+
+    # apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
     # Add histograms for trainable variables.
     for var in tf.trainable_variables():
