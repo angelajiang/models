@@ -62,6 +62,10 @@ tf.app.flags.DEFINE_boolean('log_gradients', True,
 tf.app.flags.DEFINE_float('backprop_threshold', 0,
                           """Threshold for determining if backprop should be """
                           """executed.""")
+tf.app.flags.DEFINE_float('threshold_decay_steps', 10000.0,
+                          """Epochs after which backprop threshold decays.""")
+tf.app.flags.DEFINE_float('threshold_decay_factor', 1,
+                          """Backprop threshold decay factor.""")
 
 
 # **IMPORTANT**
@@ -208,6 +212,15 @@ def train(dataset):
                                     FLAGS.learning_rate_decay_factor,
                                     staircase=True)
 
+    # Decay the backprop threshold exponentially based on the number of steps.
+    threshold = tf.train.exponential_decay(FLAGS.backprop_threshold,
+                                           global_step,
+                                           #10,
+                                           #0.5,
+                                           FLAGS.threshold_decay_steps,
+                                           FLAGS.threshold_decay_factor,
+                                           staircase=True)
+
     # Create an optimizer that performs gradient descent.
     opt = tf.train.RMSPropOptimizer(lr, RMSPROP_DECAY,
                                     momentum=RMSPROP_MOMENTUM,
@@ -308,19 +321,19 @@ def train(dataset):
 
     backprop_count = tf.Variable(1, name='backprop_count', trainable=False, dtype=tf.int32)
     nobackprop_count = tf.Variable(1, name='nobackprop_count', trainable=False, dtype=tf.int32)
-    #print_backprop_counts = tf.Print(backprop_count, [backprop_count, nobackprop_count])
-    print_lr = tf.Print(lr, [lr])
+    print_sb_debug = tf.Print(lr, [lr, threshold, backprop_count, nobackprop_count])
 
     # Apply the gradients to adjust the shared variables.
     # apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
     apply_gradient_op = \
-      tf.cond(tf.cast(norms > FLAGS.backprop_threshold, tf.bool),
+      tf.cond(tf.cast(norms > threshold, tf.bool),
               lambda: tf.group(tf.assign(backprop_count, backprop_count+1), opt.apply_gradients(grads, global_step=global_step)),
               lambda: tf.group(tf.assign(nobackprop_count, nobackprop_count+1), tf.cast(True, tf.bool)))
 
     with tf.name_scope('%s' % ("Debug")) as scope:
       summaries.append(tf.summary.scalar('backprop_count', backprop_count))
       summaries.append(tf.summary.scalar('nobackprop_count', nobackprop_count))
+      summaries.append(tf.summary.scalar('threshold', threshold))
 
     ##########################
 
@@ -393,7 +406,7 @@ def train(dataset):
                             examples_per_sec, duration))
 
       if step % 100 == 0:
-        summary_str = sess.run(print_lr)
+        summary_str = sess.run(print_sb_debug)
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
 
