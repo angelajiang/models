@@ -188,6 +188,7 @@ def _average_gradients(tower_grads):
 
 def train(dataset):
   """Train on dataset for a number of steps."""
+
   with tf.Graph().as_default(), tf.device('/cpu:0'):
     # Create a variable to count the number of train() calls. This equals the
     # number of batches processed * FLAGS.num_gpus.
@@ -308,6 +309,7 @@ def train(dataset):
     backprop_count = tf.Variable(1, name='backprop_count', trainable=False, dtype=tf.int32)
     nobackprop_count = tf.Variable(1, name='nobackprop_count', trainable=False, dtype=tf.int32)
     #print_backprop_counts = tf.Print(backprop_count, [backprop_count, nobackprop_count])
+    print_lr = tf.Print(lr, [lr])
 
     # Apply the gradients to adjust the shared variables.
     # apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
@@ -391,6 +393,7 @@ def train(dataset):
                             examples_per_sec, duration))
 
       if step % 100 == 0:
+        summary_str = sess.run(print_lr)
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
 
