@@ -62,7 +62,7 @@ tf.app.flags.DEFINE_boolean('log_gradients', True,
 tf.app.flags.DEFINE_float('backprop_threshold', 0,
                           """Threshold for determining if backprop should be """
                           """executed.""")
-tf.app.flags.DEFINE_float('threshold_decay_steps', 10000.0,
+tf.app.flags.DEFINE_float('threshold_decay_steps', 100000.0,
                           """Epochs after which backprop threshold decays.""")
 tf.app.flags.DEFINE_float('threshold_decay_factor', 1,
                           """Backprop threshold decay factor.""")
@@ -83,6 +83,8 @@ tf.app.flags.DEFINE_float('initial_learning_rate', 0.1,
 tf.app.flags.DEFINE_float('num_epochs_per_decay', 30.0,
                           """Epochs after which learning rate decays.""")
 tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.16,
+                          """Learning rate decay factor.""")
+tf.app.flags.DEFINE_float('learning_rate_decay_steps', 100000,
                           """Learning rate decay factor.""")
 
 # Constants dictating the learning rate schedule.
@@ -208,15 +210,13 @@ def train(dataset):
     # Decay the learning rate exponentially based on the number of steps.
     lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
                                     global_step,
-                                    decay_steps,
+                                    FLAGS.learning_rate_decay_steps,
                                     FLAGS.learning_rate_decay_factor,
                                     staircase=True)
 
     # Decay the backprop threshold exponentially based on the number of steps.
     threshold = tf.train.exponential_decay(FLAGS.backprop_threshold,
                                            global_step,
-                                           #10,
-                                           #0.5,
                                            FLAGS.threshold_decay_steps,
                                            FLAGS.threshold_decay_factor,
                                            staircase=True)
